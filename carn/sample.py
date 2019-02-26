@@ -34,18 +34,22 @@ def save_image(tensor, filename):
 
 def sample(net, device, dataset, cfg):
     scale = cfg.scale
+    print(dataset.name)
     for step, (hr, lr, name) in enumerate(dataset):
         if "DIV2K" in dataset.name:
+            print("test_DIV2K")
             t1 = time.time()
             h, w = lr.size()[1:]
             h_half, w_half = int(h/2), int(w/2)
             h_chop, w_chop = h_half + cfg.shave, w_half + cfg.shave
 
-            lr_patch = torch.tensor((4, 3, h_chop, w_chop), dtype=torch.float)
-            lr_patch[0].copy_(lr[:, 0:h_chop, 0:w_chop])
-            lr_patch[1].copy_(lr[:, 0:h_chop, w-w_chop:w])
-            lr_patch[2].copy_(lr[:, h-h_chop:h, 0:w_chop])
-            lr_patch[3].copy_(lr[:, h-h_chop:h, w-w_chop:w])
+            print("lr's size: {}".format(lr.shape))
+            lr_patch = torch.zeros((4, 3, h_chop, w_chop), dtype=torch.float)
+            print("lr_patch's size: {} ".format(lr_patch.shape))
+            lr_patch[0,:,:,:].copy_(lr[:, 0:h_chop, 0:w_chop])
+            lr_patch[1,:,:,:].copy_(lr[:, 0:h_chop, w-w_chop:w])
+            lr_patch[2,:,:,:].copy_(lr[:, h-h_chop:h, 0:w_chop])
+            lr_patch[3,:,:,:].copy_(lr[:, h-h_chop:h, w-w_chop:w])
             lr_patch = lr_patch.to(device)
             
             sr = net(lr_patch, cfg.scale).detach()
@@ -53,7 +57,7 @@ def sample(net, device, dataset, cfg):
             h, h_half, h_chop = h*scale, h_half*scale, h_chop*scale
             w, w_half, w_chop = w*scale, w_half*scale, w_chop*scale
 
-            result = torch.tensor((3, h, w), dtype=torch.float).to(device)
+            result = torch.zeros((3, h, w), dtype=torch.float).to(device)
             result[:, 0:h_half, 0:w_half].copy_(sr[0, :, 0:h_half, 0:w_half])
             result[:, 0:h_half, w_half:w].copy_(sr[1, :, 0:h_half, w_chop-w+w_half:w_chop])
             result[:, h_half:h, 0:w_half].copy_(sr[2, :, h_chop-h+h_half:h_chop, 0:w_half])
@@ -61,6 +65,7 @@ def sample(net, device, dataset, cfg):
             sr = result
             t2 = time.time()
         else:
+            print("test_DIV2K_false")
             t1 = time.time()
             lr = lr.unsqueeze(0).to(device)
             sr = net(lr, cfg.scale).detach().squeeze(0)
@@ -108,7 +113,9 @@ def main(cfg):
     
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     net = net.to(device)
-    
+    net = nn.DataParallel(net, [0,1,2,3,4,5,6,7])
+
+    print(cfg.test_data_dir)    
     dataset = TestDataset(cfg.test_data_dir, cfg.scale)
     sample(net, device, dataset, cfg)
  
