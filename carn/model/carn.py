@@ -58,7 +58,7 @@ class Net(nn.Module):
                                           group=group)
         self.exit = nn.Conv2d(64, 3, 3, 1, 1)
                 
-    def forward(self, x, scale):
+    def forward(self, x):
         x = self.sub_mean(x)
         x = self.entry(x)
         c0 = o0 = x
@@ -75,7 +75,7 @@ class Net(nn.Module):
         c3 = torch.cat([c2, b3], dim=1)
         o3 = self.c3(c3)
 
-        out = self.upsample(o3, scale=scale)
+        out = self.upsample(o3, scale=2)
 
         out = self.exit(out)
         out = self.add_mean(out)

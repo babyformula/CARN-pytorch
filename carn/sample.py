@@ -43,6 +43,16 @@ def sample(net, device, dataset, cfg):
             h_half, w_half = int(h/2), int(w/2)
             h_chop, w_chop = h_half + cfg.shave, w_half + cfg.shave
 
+            example = torch.rand((4, 3, h_chop, w_chop), dtype=torch.float)
+            example[0, :, :, :].copy_(lr[:, 0:h_chop, 0:w_chop])
+            example[1, :, :, :].copy_(lr[:, 0:h_chop, w - w_chop:w])
+            example[2, :, :, :].copy_(lr[:, h - h_chop:h, 0:w_chop])
+            example[3, :, :, :].copy_(lr[:, h - h_chop:h, w - w_chop:w])
+            example = example.to(device)
+            traced_script_module = torch.jit.trace(net, example)
+            traced_script_module.save("checkpoint/model.pt")
+            break
+            
             print("lr's size: {}".format(lr.shape))
             lr_patch = torch.zeros((4, 3, h_chop, w_chop), dtype=torch.float)
             print("lr_patch's size: {} ".format(lr_patch.shape))
@@ -52,7 +62,7 @@ def sample(net, device, dataset, cfg):
             lr_patch[3,:,:,:].copy_(lr[:, h-h_chop:h, w-w_chop:w])
             lr_patch = lr_patch.to(device)
             
-            sr = net(lr_patch, cfg.scale).detach()
+            sr = net(lr_patch).detach()
             
             h, h_half, h_chop = h*scale, h_half*scale, h_chop*scale
             w, w_half, w_chop = w*scale, w_half*scale, w_chop*scale
@@ -111,9 +121,10 @@ def main(cfg):
 
     net.load_state_dict(new_state_dict)
     
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    device = torch.device("cpu")
+    #device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     net = net.to(device)
-    net = nn.DataParallel(net, [0,1,2,3,4,5,6,7])
+    #net = nn.DataParallel(net, [0,1,2,3,4,5,6,7])
 
     print(cfg.test_data_dir)    
     dataset = TestDataset(cfg.test_data_dir, cfg.scale)
